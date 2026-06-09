@@ -7,8 +7,7 @@
     "vscode": "^1.120.0"
   },
   "categories": [
-    "Other",
-    "Developer Tools"
+    "Other"
   ],
   "license": "MIT",
   "activationEvents": [
