@@ -1,0 +1,105 @@
+{
+  "name": "dv-environment-variable-manager",
+  "displayName": "DV Environment Variable Manager",
+  "description": "Preview-first Dataverse environment variable value management for VS Code.",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.120.0"
+  },
+  "categories": [
+    "Other",
+    "Developer Tools"
+  ],
+  "license": "MIT",
+  "activationEvents": [
+    "onCommand:dvEnvironmentVariableManager.open"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dvEnvironmentVariableManager.open",
+        "title": "DV Environment Variable Manager: Open"
+      }
+    ],
+    "configuration": {
+      "title": "DV Environment Variable Manager",
+      "properties": {
+        "dvEnvironmentVariableManager.environments": {
+          "type": "array",
+          "default": [],
+          "description": "Dataverse environments available to DV Environment Variable Manager.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "url"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Environment label, for example DEV or SIT."
+              },
+              "url": {
+                "type": "string",
+                "description": "Dataverse environment URL, for example https://org.crm6.dynamics.com."
+              },
+              "tenantId": {
+                "type": "string",
+                "description": "Optional tenant ID for Azure CLI token acquisition."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.120.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.56.1",
+    "eslint": "^9.39.3",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  },
+  "keywords": [
+    "dataverse",
+    "power platform",
+    "dynamics 365",
+    "environment variables",
+    "environment variable",
+    "configuration",
+    "power automate",
+    "powerapps",
+    "power apps",
+    "solution administration",
+    "environment configuration",
+    "application lifecycle management",
+    "alm",
+    "metadata",
+    "vscode",
+    "dvforgelab",
+    "crm",
+    "microsoft dataverse"
+    ],
+  "publisher": "dv-forgelab",
+  "icon": "images/dv-utilities-icon-128.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yongjinsim-sudo/dv-environment-variable-manager"
+  },
+  "bugs": {
+    "url": "https://github.com/yongjinsim-sudo/dv-environment-variable-manager/issues"
+  },
+  "homepage": "https://github.com/yongjinsim-sudo/dv-environment-variable-manager"
+}

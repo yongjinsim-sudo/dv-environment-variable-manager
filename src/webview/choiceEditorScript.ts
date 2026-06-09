@@ -1,0 +1,22 @@
+export const choiceEditorScript = `
+(function () {
+	const vscode = acquireVsCodeApi();
+
+	function post(command, payload) {
+		vscode.postMessage({ command, payload: payload || {} });
+	}
+
+	document.querySelectorAll('[data-command]').forEach((button) => {
+		button.addEventListener('click', () => {
+			const payload = {};
+			if (button instanceof HTMLElement) {
+				Object.keys(button.dataset).forEach((key) => {
+					payload[key] = button.dataset[key];
+				});
+			}
+
+			post(button.getAttribute('data-command'), payload);
+		});
+	});
+})();
+`;
