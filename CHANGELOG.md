@@ -2,6 +2,17 @@
 
 All notable changes to the "DV Environment Variable Manager" extension will be documented in this file.
 
+## [1.0.1] - 2026-06-10
+
+### Added
+
+- Shared DV ForgeLab environment setting support via `dvForgeLab.environments`.
+- Legacy `dvEnvironmentVariableManager.environments` fallback remains supported.
+
+### Changed
+
+- New environment profiles are saved to the shared DV ForgeLab utility setting.
+
 ## [1.0.0] - 2026-06-10
 
 ### Added

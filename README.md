@@ -46,6 +46,22 @@ Built around a **preview-first workflow**, all changes are staged locally before
 * Refresh and reload environment variable state
 * Managed solution awareness
 
+## Shared DV ForgeLab Environment Settings
+
+DV Environment Variable Manager supports the shared DV ForgeLab environment setting:
+
+```json
+"dvForgeLab.environments": [
+  {
+    "name": "DEV",
+    "url": "https://org.crm6.dynamics.com",
+    "tenantId": "optional-tenant-id"
+  }
+]
+```
+
+This setting can be reused by DV ForgeLab utilities. The legacy `dvEnvironmentVariableManager.environments` setting remains supported as a fallback.
+
 ---
 
 ## Command
