@@ -1,8 +1,8 @@
 {
   "name": "dv-environment-variable-manager",
   "displayName": "DV Environment Variable Manager",
-  "description": "Preview-first Dataverse environment variable value management for VS Code.",
-  "version": "1.0.1",
+  "description": "Preview-first Dataverse environment variable management with JSON definition import/export for VS Code.",
+  "version": "1.1.0",
   "engines": {
     "vscode": "^1.120.0"
   },
@@ -116,7 +116,11 @@
     "vscode",
     "dvforgelab",
     "crm",
-    "microsoft dataverse"
+    "microsoft dataverse",
+    "json import",
+    "json export",
+    "definition artifacts",
+    "dvevm"
   ],
   "publisher": "dv-forgelab",
   "icon": "images/dv-utilities-icon-128.png",

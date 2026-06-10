@@ -124,6 +124,27 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .dv-card-caption { color: var(--dv-muted); margin-top: 6px; }
 
 .dv-section { margin-top: 18px; }
+
+.dv-section-header {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	margin-bottom: 12px;
+}
+.dv-section-header h2 { margin: 0 0 8px; font-size: 21px; }
+.dv-section-header p { margin: 0; color: var(--dv-muted); }
+.dv-definition-actions {
+	margin-left: auto;
+	align-items: center;
+}
+.dv-definition-actions button {
+	min-width: 112px;
+	white-space: nowrap;
+}
+.dv-section-heading { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 12px; }
+.dv-section-heading h2 { margin: 0 0 8px; font-size: 21px; }
 .dv-section h2 { margin: 0 0 8px; font-size: 21px; }
 .dv-section p { margin: 0 0 14px; color: var(--dv-muted); }
 .dv-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

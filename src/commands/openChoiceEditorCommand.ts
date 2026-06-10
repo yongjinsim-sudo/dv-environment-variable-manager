@@ -12,6 +12,54 @@ type WebviewMessage = {
 	payload?: Record<string, unknown>;
 };
 
+
+type EnvironmentVariableDefinitionArtifact = {
+	version?: string;
+	kind?: string;
+	variables?: EnvironmentVariableDefinitionItem[];
+};
+
+type EnvironmentVariableDefinitionItem = {
+	schemaName?: string;
+	displayName?: string;
+	type?: string;
+	defaultValue?: string;
+	currentValue?: string;
+};
+
+function getArtifactVariables(raw: unknown): EnvironmentVariableDefinitionItem[] {
+	if (!raw || typeof raw !== 'object') {
+		return [];
+	}
+
+	const candidate = raw as EnvironmentVariableDefinitionArtifact | EnvironmentVariableDefinitionItem;
+	if (Array.isArray((candidate as EnvironmentVariableDefinitionArtifact).variables)) {
+		return (candidate as EnvironmentVariableDefinitionArtifact).variables ?? [];
+	}
+
+	if (typeof (candidate as EnvironmentVariableDefinitionItem).schemaName === 'string') {
+		return [candidate as EnvironmentVariableDefinitionItem];
+	}
+
+	return [];
+}
+
+function normalizeArtifactValue(type: string, rawValue: unknown): string | undefined {
+	if (rawValue === undefined || rawValue === null) {
+		return undefined;
+	}
+
+	if (typeof rawValue === 'string') {
+		return rawValue;
+	}
+
+	if (type === 'JSON') {
+		return JSON.stringify(rawValue);
+	}
+
+	return String(rawValue);
+}
+
 export async function openEnvironmentVariableManagerCommand(context: vscode.ExtensionContext): Promise<void> {
 	let connection: DataverseConnection | undefined;
 	const state: EnvironmentVariableManagerState = createInitialEnvironmentVariableManagerState();
@@ -258,6 +306,149 @@ export async function openEnvironmentVariableManagerCommand(context: vscode.Exte
 		}
 	}
 
+
+	async function exportJsonDefinition(): Promise<void> {
+		if (!state.variables.length) {
+			state.message = { kind: 'Warning', text: 'No environment variables are loaded to export.' };
+			render();
+			return;
+		}
+
+		const artifact: EnvironmentVariableDefinitionArtifact = {
+			version: '1.0',
+			kind: 'dv-forgelab.environment-variable-definitions',
+			variables: state.variables
+				.filter(variable => variable.type !== 'Secret')
+				.map(variable => ({
+					schemaName: variable.schemaName,
+					displayName: variable.displayName,
+					type: variable.type,
+					defaultValue: variable.defaultValue,
+					currentValue: variable.currentValue
+				}))
+		};
+
+		const uri = await vscode.window.showSaveDialog({
+			defaultUri: vscode.Uri.file('environment-variables.dvevm.json'),
+			filters: {
+				'DVEVM JSON': ['dvevm.json', 'json'],
+				'JSON': ['json']
+			},
+			saveLabel: 'Export JSON'
+		});
+
+		if (!uri) {
+			return;
+		}
+
+		await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(`${JSON.stringify(artifact, null, 2)}\n`));
+		state.message = { kind: 'Info', text: `Exported ${artifact.variables?.length ?? 0} environment variable definition(s) to JSON.` };
+		render();
+	}
+
+	async function importJsonDefinition(): Promise<void> {
+		if (!connection) {
+			await connect(false);
+			if (!connection) {
+				return;
+			}
+		}
+
+		if (!state.variables.length) {
+			await refreshVariables();
+		}
+
+		const [uri] = await vscode.window.showOpenDialog({
+			canSelectFiles: true,
+			canSelectFolders: false,
+			canSelectMany: false,
+			filters: {
+				'DVEVM JSON': ['dvevm.json', 'json'],
+				'JSON': ['json']
+			},
+			openLabel: 'Import JSON'
+		}) ?? [];
+
+		if (!uri) {
+			return;
+		}
+
+		try {
+			const bytes = await vscode.workspace.fs.readFile(uri);
+			const text = new TextDecoder().decode(bytes);
+			const artifact = JSON.parse(text) as unknown;
+			const importedVariables = getArtifactVariables(artifact);
+
+			if (!importedVariables.length) {
+				state.message = { kind: 'Warning', text: 'The selected JSON file does not contain environment variable definitions.' };
+				render();
+				return;
+			}
+
+			let staged = 0;
+			let skipped = 0;
+			let missing = 0;
+			let invalid = 0;
+
+			for (const imported of importedVariables) {
+				const schemaName = imported.schemaName?.trim();
+				if (!schemaName) {
+					invalid += 1;
+					continue;
+				}
+
+				const variable = state.variables.find(item => item.schemaName.toLowerCase() === schemaName.toLowerCase());
+				if (!variable) {
+					missing += 1;
+					continue;
+				}
+
+				if (variable.type === 'Secret') {
+					skipped += 1;
+					continue;
+				}
+
+				const importedValue = normalizeArtifactValue(variable.type, imported.currentValue);
+				if (importedValue === undefined) {
+					skipped += 1;
+					continue;
+				}
+
+				const normalizedValue = normalizeValue(variable, importedValue);
+				if (normalizedValue === undefined) {
+					invalid += 1;
+					continue;
+				}
+
+				if ((variable.currentValue ?? '') === normalizedValue) {
+					skipped += 1;
+					continue;
+				}
+
+				const isCreate = !variable.currentValueId;
+				state.pendingChanges = state.pendingChanges.filter(change => change.definitionId !== variable.id);
+				state.pendingChanges.push({
+					kind: isCreate ? 'CreateValue' : 'UpdateValue',
+					definitionId: variable.id,
+					valueId: variable.currentValueId,
+					variableName: variable.displayName,
+					previousValue: variable.currentValue ?? variable.defaultValue,
+					nextValue: normalizedValue
+				});
+
+				state.variables = state.variables.map(item => item.id === variable.id ? { ...item, displayValue: normalizedValue, pendingState: isCreate ? 'Created' : 'Updated' } : item);
+				staged += 1;
+			}
+
+			state.previewOpen = false;
+			state.message = { kind: 'Info', text: `Imported JSON definition. Staged ${staged}, skipped ${skipped}, missing ${missing}, invalid ${invalid}.` };
+			render();
+		} catch (error) {
+			state.message = { kind: 'Error', text: error instanceof Error ? error.message : String(error) };
+			render();
+		}
+	}
+
 	async function handleMessage(message: WebviewMessage): Promise<void> {
 		switch (message.command) {
 			case 'connect':
@@ -268,6 +459,12 @@ export async function openEnvironmentVariableManagerCommand(context: vscode.Exte
 				break;
 			case 'refresh':
 				await refreshVariables();
+				break;
+			case 'importJson':
+				await importJsonDefinition();
+				break;
+			case 'exportJson':
+				await exportJsonDefinition();
 				break;
 			case 'editVariable':
 				stageValue(message.payload);

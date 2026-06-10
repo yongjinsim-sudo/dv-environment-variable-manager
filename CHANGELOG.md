@@ -2,6 +2,28 @@
 
 All notable changes to the "DV Environment Variable Manager" extension will be documented in this file.
 
+## [1.1.0] - 2026-06-10
+
+### Added
+
+- JSON definition artifact export for environment variable definitions and current values.
+- JSON definition artifact import for staging environment variable current value changes.
+- Import comparison against loaded Dataverse environment variable definitions.
+- Import summary covering staged, skipped, missing, and invalid definitions.
+- Preview-first imported value workflow aligned with DV ForgeLab utility patterns.
+
+### Changed
+
+- Updated marketplace metadata and documentation for definition artifact support.
+- Environment variable import/export now supports controlled configuration reconstruction workflows.
+
+### Boundaries
+
+- Import does not create environment variable definitions.
+- Import does not update Dataverse immediately.
+- Secret values remain unsupported for import/export mutation workflows.
+- Imported changes must still be previewed and explicitly applied.
+
 ## [1.0.1] - 2026-06-10
 
 ### Added

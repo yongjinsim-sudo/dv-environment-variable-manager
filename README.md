@@ -2,7 +2,7 @@
 
 Preview-first Dataverse environment variable value management inside VS Code.
 
-**DV Environment Variable Manager** is a focused utility from **DV ForgeLab** for reviewing, creating, updating, and removing Dataverse environment variable current values without leaving VS Code.
+**DV Environment Variable Manager** is a focused utility from **DV ForgeLab** for reviewing, creating, updating, removing, importing, and exporting Dataverse environment variable current values without leaving VS Code.
 
 Built around a **preview-first workflow**, all changes are staged locally before being applied to Dataverse, helping administrators review environment configuration changes before execution.
 
@@ -21,11 +21,19 @@ Built around a **preview-first workflow**, all changes are staged locally before
 * Display variable type information
 * Display managed value indicators
 
+### Definition Artifacts
+
+* Export environment variable definitions and current values to JSON
+* Import environment variable current values from JSON
+* Stage imported differences locally before apply
+* Skip unchanged values, missing definitions, and unsupported secret values
+* Use JSON artifacts for repeatable configuration reconstruction workflows
+
 ### Preview-First Administration
 
 * Create current values for environment variables using definition defaults
 * Update existing current values
-* Remove current values (where permitted by Dataverse)
+* Remove current values where permitted by Dataverse
 * Stage changes locally before execution
 * Review pending changes
 * Preview mutations before applying
@@ -45,6 +53,30 @@ Built around a **preview-first workflow**, all changes are staged locally before
 * Environment-aware DEV / TEST / PROD visual cues
 * Refresh and reload environment variable state
 * Managed solution awareness
+
+## JSON Definition Artifacts
+
+DV Environment Variable Manager supports JSON definition artifacts for controlled environment variable reconstruction.
+
+Example:
+
+```json
+{
+  "version": "1.0",
+  "kind": "dv-forgelab.environment-variable-definitions",
+  "variables": [
+    {
+      "schemaName": "new_apiendpoint",
+      "displayName": "API Endpoint",
+      "type": "Text",
+      "defaultValue": "https://api.contoso.com",
+      "currentValue": "https://api-uat.contoso.com"
+    }
+  ]
+}
+```
+
+Imported definitions do not update Dataverse immediately. Matching variables are staged as pending changes and must still be reviewed through the preview-first apply workflow.
 
 ## Shared DV ForgeLab Environment Settings
 
@@ -79,7 +111,7 @@ Connect to Dataverse
         ↓
 Load Environment Variables
         ↓
-Create / Edit / Remove Current Values
+Create / Edit / Remove / Import Current Values
         ↓
 Review Pending Changes
         ↓
@@ -98,12 +130,22 @@ It intentionally does not provide:
 
 * Environment variable definition creation
 * Environment variable definition deletion
+* Secret value management
 * Solution management
 * Connection reference management
 * ALM deployment automation
 * Environment promotion workflows
+* Automatic configuration remediation
 
 For investigation, operational analysis, comparison, and troubleshooting workflows, see DV Quick Run.
+
+---
+
+## Preview-First Philosophy
+
+DV Environment Variable Manager follows the DV ForgeLab preview-first invariant.
+
+Environment variable changes are staged locally, validated, previewed, and explicitly applied by the user. Dataverse configuration is never changed without a preview and confirmation step.
 
 ---
 
@@ -111,6 +153,7 @@ For investigation, operational analysis, comparison, and troubleshooting workflo
 
 DV Environment Variable Manager is part of the growing DV ForgeLab utility family:
 
+* DV Attribute Factory
 * DV Choice Editor
 * DV Environment Variable Manager
 * DV Quick Run

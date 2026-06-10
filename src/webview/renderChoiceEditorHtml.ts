@@ -57,7 +57,7 @@ function getTypeLabel(type: string): string {
 }
 
 function getPendingLabel(pendingState: string): string {
-	if (pendingState === 'Created') { return 'Created ✓'; }
+	if (pendingState === 'Created') { return 'Staged create'; }
 	if (pendingState === 'Updated') { return 'Updated'; }
 	if (pendingState === 'Deleted') { return 'Deleted'; }
 	return pendingState;
@@ -175,8 +175,16 @@ export function renderEnvironmentVariableManagerHtml(viewModel: EnvironmentVaria
 		</section>
 
 		<section class="dv-section">
-			<h2>Environment variables</h2>
-			<p>Load and manage Dataverse environment variable current values for the selected environment.</p>
+			<div class="dv-section-header">
+				<div>
+					<h2>Environment variables</h2>
+					<p>Load and manage Dataverse environment variable current values for the selected environment.</p>
+				</div>
+				<div class="dv-actions dv-definition-actions">
+					<button data-command="importJson">Import JSON</button>
+					<button data-command="exportJson"${viewModel.variables.length ? '' : ' disabled'}>Export JSON</button>
+				</div>
+			</div>
 			<div class="dv-table-wrap"><table><thead><tr><th>Variable</th><th>Type</th><th>Current Value</th><th>Status</th><th>Pending</th><th>Actions</th></tr></thead><tbody>${variableRows}</tbody></table></div>
 		</section>
 
