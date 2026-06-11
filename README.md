@@ -151,15 +151,18 @@ Environment variable changes are staged locally, validated, previewed, and expli
 
 ## DV ForgeLab Utilities
 
-DV Environment Variable Manager is part of the growing DV ForgeLab utility family:
+DV Environment Variable Manager is a focused Dataverse utility from DV ForgeLab.
 
-* DV Attribute Factory
-* DV Choice Editor
-* DV Environment Variable Manager
-* DV Quick Run
+For operational investigation, execution, runtime analysis, and cross-environment comparison, see [DV Quick Run](https://www.dvquickrun.com).
 
-Each utility focuses on a specific Dataverse administration or investigation scenario while maintaining a consistent VS Code experience.
+DV Environment Variable Manager follows the same principles:
+
+* Preview-first
+* Environment-aware
+* Metadata-backed
+* Explicit execution
+* Calm operational UX
 
 ---
 
-Built by **DV ForgeLab**.
+Built by **[DV ForgeLab](https://www.dvforgelab.com)**.

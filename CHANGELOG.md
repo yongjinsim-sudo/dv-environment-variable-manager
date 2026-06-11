@@ -2,6 +2,15 @@
 
 All notable changes to the "DV Environment Variable Manager" extension will be documented in this file.
 
+## [1.1.1] - Documentation & Branding Refresh
+
+### Changed
+
+- Added DV ForgeLab website links across documentation.
+- Updated footer links to point to dvforgelab.com and dvquickrun.com.
+- Refreshed README screenshots and workflow documentation.
+- Improved product ecosystem references.
+
 ## [1.1.0] - 2026-06-10
 
 ### Added

@@ -2,7 +2,7 @@
   "name": "dv-environment-variable-manager",
   "displayName": "DV Environment Variable Manager",
   "description": "Preview-first Dataverse environment variable management with JSON definition import/export for VS Code.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "engines": {
     "vscode": "^1.120.0"
   },
