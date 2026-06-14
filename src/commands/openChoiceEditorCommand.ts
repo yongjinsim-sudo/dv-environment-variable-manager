@@ -44,6 +44,16 @@ function getArtifactVariables(raw: unknown): EnvironmentVariableDefinitionItem[]
 	return [];
 }
 
+function getExtensionVersion(context: vscode.ExtensionContext): string {
+	const packageJson = context.extension.packageJSON as { version?: unknown };
+	return typeof packageJson.version === 'string' ? packageJson.version : 'unknown';
+}
+
+function buildFeedbackUri(context: vscode.ExtensionContext): vscode.Uri {
+	const version = encodeURIComponent(getExtensionVersion(context));
+	return vscode.Uri.parse(`https://dvforgelab.com/feedback?product=dvevm&version=${version}`);
+}
+
 function normalizeArtifactValue(type: string, rawValue: unknown): string | undefined {
 	if (rawValue === undefined || rawValue === null) {
 		return undefined;
@@ -459,6 +469,9 @@ export async function openEnvironmentVariableManagerCommand(context: vscode.Exte
 				break;
 			case 'refresh':
 				await refreshVariables();
+				break;
+			case 'openFeedback':
+				await vscode.env.openExternal(buildFeedbackUri(context));
 				break;
 			case 'importJson':
 				await importJsonDefinition();

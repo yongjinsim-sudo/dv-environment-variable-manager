@@ -162,6 +162,7 @@ export function renderEnvironmentVariableManagerHtml(viewModel: EnvironmentVaria
 				<button data-command="connect">Connect</button>
 				<button data-command="changeEnvironment">Change environment</button>
 				<button data-command="refresh">Refresh</button>
+				<button data-command="openFeedback">Feedback</button>
 			</div>
 		</section>
 

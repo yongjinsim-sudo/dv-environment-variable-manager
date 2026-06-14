@@ -53,6 +53,7 @@ Built around a **preview-first workflow**, all changes are staged locally before
 * Environment-aware DEV / TEST / PROD visual cues
 * Refresh and reload environment variable state
 * Managed solution awareness
+* Direct DV ForgeLab feedback integration
 
 ## JSON Definition Artifacts
 
@@ -119,6 +120,24 @@ Preview Changes
         ↓
 Apply to Dataverse
 ```
+
+---
+
+## Feedback
+
+DV Attribute Factory includes direct integration with the DV ForgeLab feedback portal.
+
+Share:
+
+* Feature requests
+* Bug reports
+* Metadata reconstruction scenarios
+* Workflow suggestions
+* Product feedback
+
+Feedback is routed through the shared DV ForgeLab feedback experience and automatically identifies DV Attribute Factory as the source product.
+
+https://www.dvforgelab.com/feedback
 
 ---
 
