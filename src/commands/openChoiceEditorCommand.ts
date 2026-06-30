@@ -14,9 +14,18 @@ type WebviewMessage = {
 
 
 type EnvironmentVariableDefinitionArtifact = {
+	artifactType?: string;
 	version?: string;
 	kind?: string;
+	generatedBy?: string;
+	generatedUtc?: string;
+	sourceEnvironment?: string | null;
+	targetEnvironment?: string | null;
+	source?: string;
 	variables?: EnvironmentVariableDefinitionItem[];
+	operations?: EnvironmentVariableArtifactOperation[];
+	findingIds?: string[];
+	notes?: string[];
 };
 
 type EnvironmentVariableDefinitionItem = {
@@ -24,7 +33,27 @@ type EnvironmentVariableDefinitionItem = {
 	displayName?: string;
 	type?: string;
 	defaultValue?: string;
-	currentValue?: string;
+	currentValue?: unknown;
+	isManaged?: boolean;
+};
+
+type EnvironmentVariableArtifactOperation = {
+	operation?: string;
+	schemaName?: string;
+	displayName?: string;
+	previousValue?: unknown;
+	nextValue?: unknown;
+};
+
+type ImportStats = {
+	staged: number;
+	skipped: number;
+	missing: number;
+	invalid: number;
+	unsupported: number;
+	creates: number;
+	updates: number;
+	deletes: number;
 };
 
 function getArtifactVariables(raw: unknown): EnvironmentVariableDefinitionItem[] {
@@ -42,6 +71,65 @@ function getArtifactVariables(raw: unknown): EnvironmentVariableDefinitionItem[]
 	}
 
 	return [];
+}
+
+function getArtifactOperations(raw: unknown): EnvironmentVariableArtifactOperation[] {
+	if (!raw || typeof raw !== 'object') {
+		return [];
+	}
+
+	const candidate = raw as EnvironmentVariableDefinitionArtifact;
+	return Array.isArray(candidate.operations) ? candidate.operations : [];
+}
+
+async function folderExists(uri: vscode.Uri): Promise<boolean> {
+	try {
+		const stat = await vscode.workspace.fs.stat(uri);
+		return stat.type === vscode.FileType.Directory;
+	} catch {
+		return false;
+	}
+}
+
+async function getWorkspaceExportsUri(options?: { create?: boolean }): Promise<vscode.Uri | undefined> {
+	const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
+	if (!workspaceFolders.length) {
+		return undefined;
+	}
+
+	const foldersWithDvForgeLab: vscode.WorkspaceFolder[] = [];
+	for (const folder of workspaceFolders) {
+		const dvForgeLabRoot = vscode.Uri.joinPath(folder.uri, '.dvforgelab');
+		if (await folderExists(dvForgeLabRoot)) {
+			foldersWithDvForgeLab.push(folder);
+		}
+	}
+
+	const selectedFolder = foldersWithDvForgeLab[0] ?? workspaceFolders[0];
+	const exportsUri = vscode.Uri.joinPath(selectedFolder.uri, '.dvforgelab', 'dvevm', 'exports');
+	if (options?.create) {
+		await vscode.workspace.fs.createDirectory(exportsUri);
+	}
+
+	return exportsUri;
+}
+
+function formatTimestamp(date = new Date()): string {
+	const pad = (value: number): string => value.toString().padStart(2, '0');
+	return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
+function sanitizeFilePart(value: string | undefined): string {
+	const cleaned = (value ?? 'environment').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+	return cleaned || 'environment';
+}
+
+function isDvevmArtifact(raw: unknown): boolean {
+	if (!raw || typeof raw !== 'object') {
+		return false;
+	}
+	const candidate = raw as EnvironmentVariableDefinitionArtifact;
+	return candidate.artifactType === 'dvevm.environmentVariableDefinitions' || candidate.kind === 'dv-forgelab.environment-variable-definitions';
 }
 
 function getExtensionVersion(context: vscode.ExtensionContext): string {
@@ -317,6 +405,151 @@ export async function openEnvironmentVariableManagerCommand(context: vscode.Exte
 	}
 
 
+	function createImportStats(): ImportStats {
+		return {
+			staged: 0,
+			skipped: 0,
+			missing: 0,
+			invalid: 0,
+			unsupported: 0,
+			creates: 0,
+			updates: 0,
+			deletes: 0
+		};
+	}
+
+	function findVariable(schemaName: string): (typeof state.variables)[number] | undefined {
+		return state.variables.find(item => item.schemaName.toLowerCase() === schemaName.toLowerCase());
+	}
+
+	function resetVariableDisplay(variableId: string, nextDisplayValue: string, pendingState: 'Created' | 'Updated' | 'Deleted'): void {
+		state.variables = state.variables.map(item => item.id === variableId ? { ...item, displayValue: nextDisplayValue, pendingState } : item);
+	}
+
+	function stageImportedCurrentValue(variable: (typeof state.variables)[number], rawValue: unknown, stats: ImportStats, explicitKind?: 'CreateValue' | 'UpdateValue'): void {
+		if (variable.type === 'Secret') {
+			stats.skipped += 1;
+			return;
+		}
+
+		const importedValue = normalizeArtifactValue(variable.type, rawValue);
+		if (importedValue === undefined) {
+			stats.skipped += 1;
+			return;
+		}
+
+		const normalizedValue = normalizeValue(variable, importedValue);
+		if (normalizedValue === undefined) {
+			stats.invalid += 1;
+			return;
+		}
+
+		if ((variable.currentValue ?? '') === normalizedValue) {
+			stats.skipped += 1;
+			return;
+		}
+
+		const kind = explicitKind ?? (!variable.currentValueId ? 'CreateValue' : 'UpdateValue');
+		if (kind === 'CreateValue' && variable.currentValueId) {
+			stats.skipped += 1;
+			return;
+		}
+
+		state.pendingChanges = state.pendingChanges.filter(change => change.definitionId !== variable.id);
+		state.pendingChanges.push({
+			kind,
+			definitionId: variable.id,
+			valueId: variable.currentValueId,
+			variableName: variable.displayName,
+			previousValue: variable.currentValue ?? variable.defaultValue,
+			nextValue: normalizedValue
+		});
+
+		resetVariableDisplay(variable.id, normalizedValue, kind === 'CreateValue' ? 'Created' : 'Updated');
+		stats.staged += 1;
+		if (kind === 'CreateValue') {
+			stats.creates += 1;
+		} else {
+			stats.updates += 1;
+		}
+	}
+
+	function stageImportedDelete(variable: (typeof state.variables)[number], stats: ImportStats): void {
+		if (variable.type === 'Secret') {
+			stats.skipped += 1;
+			return;
+		}
+		if (!variable.currentValueId) {
+			stats.skipped += 1;
+			return;
+		}
+		if (variable.currentValueIsManaged) {
+			stats.skipped += 1;
+			return;
+		}
+
+		state.pendingChanges = state.pendingChanges.filter(change => change.definitionId !== variable.id);
+		state.pendingChanges.push({
+			kind: 'DeleteValue',
+			definitionId: variable.id,
+			valueId: variable.currentValueId,
+			variableName: variable.displayName,
+			previousValue: variable.currentValue
+		});
+		resetVariableDisplay(variable.id, variable.defaultValue ?? '(not set)', 'Deleted');
+		stats.staged += 1;
+		stats.deletes += 1;
+	}
+
+	function importLegacyVariables(importedVariables: EnvironmentVariableDefinitionItem[], stats: ImportStats): void {
+		for (const imported of importedVariables) {
+			const schemaName = imported.schemaName?.trim();
+			if (!schemaName) {
+				stats.invalid += 1;
+				continue;
+			}
+
+			const variable = findVariable(schemaName);
+			if (!variable) {
+				stats.missing += 1;
+				continue;
+			}
+
+			stageImportedCurrentValue(variable, imported.currentValue, stats);
+		}
+	}
+
+	function importOperations(operations: EnvironmentVariableArtifactOperation[], stats: ImportStats): void {
+		for (const operation of operations) {
+			const schemaName = operation.schemaName?.trim();
+			if (!schemaName) {
+				stats.invalid += 1;
+				continue;
+			}
+
+			const variable = findVariable(schemaName);
+			if (!variable) {
+				stats.missing += 1;
+				continue;
+			}
+
+			switch (operation.operation) {
+				case 'SetCurrentValue':
+					stageImportedCurrentValue(variable, operation.nextValue, stats, 'UpdateValue');
+					break;
+				case 'CreateCurrentValue':
+					stageImportedCurrentValue(variable, operation.nextValue, stats, 'CreateValue');
+					break;
+				case 'DeleteCurrentValue':
+					stageImportedDelete(variable, stats);
+					break;
+				default:
+					stats.unsupported += 1;
+					break;
+			}
+		}
+	}
+
 	async function exportJsonDefinition(): Promise<void> {
 		if (!state.variables.length) {
 			state.message = { kind: 'Warning', text: 'No environment variables are loaded to export.' };
@@ -325,8 +558,12 @@ export async function openEnvironmentVariableManagerCommand(context: vscode.Exte
 		}
 
 		const artifact: EnvironmentVariableDefinitionArtifact = {
-			version: '1.0',
-			kind: 'dv-forgelab.environment-variable-definitions',
+			artifactType: 'dvevm.environmentVariableDefinitions',
+			version: '2.0',
+			generatedBy: 'DV Environment Variable Manager',
+			generatedUtc: new Date().toISOString(),
+			sourceEnvironment: state.environment?.label ?? null,
+			targetEnvironment: null,
 			variables: state.variables
 				.filter(variable => variable.type !== 'Secret')
 				.map(variable => ({
@@ -334,25 +571,37 @@ export async function openEnvironmentVariableManagerCommand(context: vscode.Exte
 					displayName: variable.displayName,
 					type: variable.type,
 					defaultValue: variable.defaultValue,
-					currentValue: variable.currentValue
-				}))
+					currentValue: variable.currentValue,
+					isManaged: variable.isManaged
+				})),
+			operations: []
 		};
 
-		const uri = await vscode.window.showSaveDialog({
-			defaultUri: vscode.Uri.file('environment-variables.dvevm.json'),
-			filters: {
-				'DVEVM JSON': ['dvevm.json', 'json'],
-				'JSON': ['json']
-			},
-			saveLabel: 'Export JSON'
-		});
+		const workspaceExportsUri = await getWorkspaceExportsUri({ create: true });
+		const filename = `dvevm-${sanitizeFilePart(state.environment?.label)}-${formatTimestamp()}.json`;
+		let uri: vscode.Uri | undefined;
+
+		if (workspaceExportsUri) {
+			uri = vscode.Uri.joinPath(workspaceExportsUri, filename);
+		} else {
+			uri = await vscode.window.showSaveDialog({
+				defaultUri: vscode.Uri.file(filename),
+				filters: {
+					'DVEVM JSON': ['json'],
+					'JSON': ['json']
+				},
+				saveLabel: 'Export JSON'
+			});
+		}
 
 		if (!uri) {
 			return;
 		}
 
 		await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(`${JSON.stringify(artifact, null, 2)}\n`));
-		state.message = { kind: 'Info', text: `Exported ${artifact.variables?.length ?? 0} environment variable definition(s) to JSON.` };
+		const workspaceMessage = workspaceExportsUri ? 'Evidence Workspace export' : 'Export';
+		state.message = { kind: 'Info', text: `${workspaceMessage} complete: exported ${artifact.variables?.length ?? 0} environment variable definition(s) to ${uri.fsPath}.` };
+		void vscode.window.showInformationMessage(`${workspaceMessage} complete: ${uri.fsPath}`);
 		render();
 	}
 
@@ -368,10 +617,13 @@ export async function openEnvironmentVariableManagerCommand(context: vscode.Exte
 			await refreshVariables();
 		}
 
+		const workspaceExportsUri = await getWorkspaceExportsUri({ create: true });
+		const defaultUri = workspaceExportsUri ? workspaceExportsUri : undefined;
 		const [uri] = await vscode.window.showOpenDialog({
 			canSelectFiles: true,
 			canSelectFolders: false,
 			canSelectMany: false,
+			defaultUri,
 			filters: {
 				'DVEVM JSON': ['dvevm.json', 'json'],
 				'JSON': ['json']
@@ -387,71 +639,30 @@ export async function openEnvironmentVariableManagerCommand(context: vscode.Exte
 			const bytes = await vscode.workspace.fs.readFile(uri);
 			const text = new TextDecoder().decode(bytes);
 			const artifact = JSON.parse(text) as unknown;
+			const operations = getArtifactOperations(artifact);
 			const importedVariables = getArtifactVariables(artifact);
 
-			if (!importedVariables.length) {
-				state.message = { kind: 'Warning', text: 'The selected JSON file does not contain environment variable definitions.' };
+			if (!isDvevmArtifact(artifact) && !importedVariables.length) {
+				state.message = { kind: 'Warning', text: 'The selected JSON file does not contain DVEVM environment variable definitions.' };
 				render();
 				return;
 			}
 
-			let staged = 0;
-			let skipped = 0;
-			let missing = 0;
-			let invalid = 0;
-
-			for (const imported of importedVariables) {
-				const schemaName = imported.schemaName?.trim();
-				if (!schemaName) {
-					invalid += 1;
-					continue;
-				}
-
-				const variable = state.variables.find(item => item.schemaName.toLowerCase() === schemaName.toLowerCase());
-				if (!variable) {
-					missing += 1;
-					continue;
-				}
-
-				if (variable.type === 'Secret') {
-					skipped += 1;
-					continue;
-				}
-
-				const importedValue = normalizeArtifactValue(variable.type, imported.currentValue);
-				if (importedValue === undefined) {
-					skipped += 1;
-					continue;
-				}
-
-				const normalizedValue = normalizeValue(variable, importedValue);
-				if (normalizedValue === undefined) {
-					invalid += 1;
-					continue;
-				}
-
-				if ((variable.currentValue ?? '') === normalizedValue) {
-					skipped += 1;
-					continue;
-				}
-
-				const isCreate = !variable.currentValueId;
-				state.pendingChanges = state.pendingChanges.filter(change => change.definitionId !== variable.id);
-				state.pendingChanges.push({
-					kind: isCreate ? 'CreateValue' : 'UpdateValue',
-					definitionId: variable.id,
-					valueId: variable.currentValueId,
-					variableName: variable.displayName,
-					previousValue: variable.currentValue ?? variable.defaultValue,
-					nextValue: normalizedValue
-				});
-
-				state.variables = state.variables.map(item => item.id === variable.id ? { ...item, displayValue: normalizedValue, pendingState: isCreate ? 'Created' : 'Updated' } : item);
-				staged += 1;
+			const stats = createImportStats();
+			if (operations.length) {
+				importOperations(operations, stats);
+			} else {
+				importLegacyVariables(importedVariables, stats);
 			}
 
 			state.previewOpen = false;
-			state.message = { kind: 'Info', text: `Imported JSON definition. Staged ${staged}, skipped ${skipped}, missing ${missing}, invalid ${invalid}.` };
+			const generatedBy = typeof (artifact as EnvironmentVariableDefinitionArtifact).generatedBy === 'string'
+				? (artifact as EnvironmentVariableDefinitionArtifact).generatedBy
+				: 'JSON artifact';
+			state.message = {
+				kind: stats.staged ? 'Info' : 'Warning',
+				text: `Imported DVEVM artifact from ${generatedBy}. Staged ${stats.staged} (${stats.creates} create, ${stats.updates} update, ${stats.deletes} delete), skipped ${stats.skipped}, missing ${stats.missing}, invalid ${stats.invalid}, unsupported ${stats.unsupported}.`
+			};
 			render();
 		} catch (error) {
 			state.message = { kind: 'Error', text: error instanceof Error ? error.message : String(error) };

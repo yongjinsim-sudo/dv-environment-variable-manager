@@ -2,6 +2,31 @@
 
 All notable changes to the "DV Environment Variable Manager" extension will be documented in this file.
 
+## [1.2.0] - Native DVEVM Artifacts & DVQR Handoff Compatibility
+
+### Added
+
+- Added native DVEVM Environment Variable Artifact v2.0 support using `artifactType: "dvevm.environmentVariableDefinitions"`.
+- Added operation-based import staging for `SetCurrentValue`, `CreateCurrentValue`, and `DeleteCurrentValue`.
+- Added workspace-first import/export support under `.dvforgelab/dvevm/exports` when a VS Code workspace is available.
+- Added automatic creation of the DVEVM shared workspace export folder before falling back to generic file dialogs.
+- Added support for importing both standard `.json` exports and DVQR-generated `.dvevm.json` reconstruction artifacts.
+
+### Changed
+
+- Manual DVEVM exports now use plain `.json` files.
+- Exported artifacts now include `generatedBy`, `generatedUtc`, and an `operations` array.
+- Export filenames now follow the standard convention: `dvevm-{environmentLabel}-{yyyyMMdd-HHmmss}.json`.
+- Import now opens from `.dvforgelab/dvevm/exports` first so DVQR handoff artifacts are easier to locate.
+- Import summary now reports staged, skipped, missing, invalid, unsupported, create, update, and delete counts.
+
+### Preserved
+
+- Existing v1.0 DVEVM JSON imports remain supported.
+- Preview-first staging remains mandatory before Dataverse mutation.
+- DVEVM continues to manage current values only; definition lifecycle changes remain out of scope.
+
+
 ## [1.1.2] - Feedback Integration & Ecosystem Connectivity
 
 ### Added
